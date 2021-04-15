@@ -2,11 +2,12 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 import pytorch_lightning as pl
-from .layers import cnn2dblock, flatten
-
+from layers import cnn1dblock, linear_layer
+from pytorch_lightning import LightningModule
+import math
 
 def get_out_put_length(input_length, kernel, padding = 2, stride = 2):
-    return ((input_length+2*padding-kernel)/stride +1)
+    return math.floor(((input_length+2*padding-kernel)/stride +1))
 
 
 def get_final_length(sequence_length, kernel_sizes, padding=2, stride=2):
@@ -18,7 +19,7 @@ def get_final_length(sequence_length, kernel_sizes, padding=2, stride=2):
 
 class MultiChannelBase(LightningModule):
 
-    def __init__(self, channels, kernel_sizes, sequence_length, num_classes, lr = 0.001, betas = (0.9, 0.999), eps = 1e-8):
+    def __init__(self, channels, kernel_sizes, sequence_length, num_classes, dropout = 0.8, lr = 0.001, betas = (0.9, 0.999), eps = 1e-8):
         super(MultiChannelBase, self).__init__()
         self.num_classes = num_classes
         self.lr = lr
@@ -31,12 +32,12 @@ class MultiChannelBase(LightningModule):
         conv = []
 
         for kernel in kernel_sizes:
-            conv.append(cnn2dblock(channels, channels, kernel))
+            conv.append(cnn1dblock(channels, channels, kernel))
         
-        self.conv = torch.Sequential(*conv)
+        self.conv = nn.Sequential(*conv)
 
-        self.num_final_channels_flattened = channels*get_final_length(sequence_length, kernel_size)
-        self.classifier = torch.nn.Sequential(*linear_layer(num_final_channels_flattened, num_classes, drop_out = dropout))
+        self.num_final_channels_flattened = channels*get_final_length(sequence_length, kernel_sizes)
+        self.classifier = nn.Sequential(*linear_layer(self.num_final_channels_flattened, num_classes, drop_out = dropout))
 
     def forward(self, x):
 

@@ -7,10 +7,10 @@ from torch.nn import functional as F
 def cnn1dblock(num_channels, out_channels, kernel_size, stride = 2,  activation = True, padding = 2):
 
     layers = []
-    layers += nn.Conv1d(num_channels, out_channels, kernel_size, stride=stride, padding = 2)
-    layers += nn.BatchNorm1d(out_channels)
+    layers.append(nn.Conv1d(num_channels, out_channels, kernel_size, stride=stride, padding = 2))
+    layers.append(nn.BatchNorm1d(out_channels))
     if activation:
-        layers += nn.ReLU()
+        layers.append(nn.ReLU())
     
     return nn.Sequential(*layers)
 
