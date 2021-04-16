@@ -5,6 +5,7 @@ import pytorch_lightning as pl
 from layers import cnn1dblock, linear_layer
 from pytorch_lightning import LightningModule
 import math
+import time
 
 def get_out_put_length(input_length, kernel, padding = 2, stride = 2):
     return math.floor(((input_length+2*padding-kernel)/stride +1))
@@ -38,9 +39,10 @@ class MultiChannelBase(LightningModule):
 
         self.num_final_channels_flattened = channels*get_final_length(sequence_length, kernel_sizes)
         self.classifier = nn.Sequential(*linear_layer(self.num_final_channels_flattened, num_classes, drop_out = dropout))
-
+        
+        self.num_paramaters = sum(p.numel() for p in self.parameters())
+        
     def forward(self, x):
-
         x = self.conv(x)
         x = torch.flatten(x, start_dim = 1)
         #x = x.view(-1, self.num_final_channels_flattened)
@@ -56,7 +58,7 @@ class MultiChannelBase(LightningModule):
     def training_step(self, batch, batch_idx):
         start = time.time()
         x, y = batch
-        x = x.view(-1, 784, 1)
+        #x = x.view(-1, 784, 1)
         labels = y 
         y_hat = self(x)
         train_loss = F.cross_entropy(y_hat, labels)
@@ -69,7 +71,7 @@ class MultiChannelBase(LightningModule):
     def validation_step(self, batch, batch_idx):
         start = time.time()
         x, y = batch
-        x = x.view(-1,  784, 1)
+        #x = x.view(-1,  784, 1)
         labels = y 
         y_hat = self(x)
         val_loss = F.cross_entropy(y_hat, labels)
@@ -82,7 +84,7 @@ class MultiChannelBase(LightningModule):
     def test_step(self, batch, batch_idx):
         start = time.time()
         x, y = batch
-        x = x.view(-1,  784, 1)
+        #x = x.view(-1,  784, 1)
         labels = y 
         y_hat = self(x)
         loss = F.cross_entropy(y_hat, labels)
