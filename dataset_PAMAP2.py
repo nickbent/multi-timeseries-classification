@@ -136,16 +136,17 @@ def split_dataset(data,id_test,stepsize):
     for i in data:
         if i!=id_test:
             for j in data[i]:
-                se=pytorch_rolling_window(data[i][j], 256, step_size=stepsize)
-                y_train.append(torch.tensor([j]*se.shape[0]))
-                #Exemple se.shape (nombre d'extraits, nb de channels, window length)
-                x_train.append(se)
+                if data[i][j].shape[0]>1:
+                    se=pytorch_rolling_window(data[i][j], 256, step_size=stepsize)
+                    y_train.append(torch.tensor([j]*se.shape[0]))
+                    #Exemple se.shape (nombre d'extraits, nb de channels, window length)
+                    x_train.append(se)
         else:
             for j in data[i]:
-                se=pytorch_rolling_window(data[i][j], 256, step_size=stepsize)
-                y_test.append(torch.tensor([j]*se.shape[0]))
-                #Exemple se.shape (nombre d'extraits, nb de channels, window length)
-                x_test.append(se)
+                if data[i][j].shape[0]>1:
+                    se=pytorch_rolling_window(data[i][j], 256, step_size=stepsize)
+                    y_test.append(torch.tensor([j]*se.shape[0]))
+                    x_test.append(se)
     x_train,y_train,x_test,y_test=torch.cat(x_train, dim=0),torch.cat(y_train, dim=0),torch.cat(x_test, dim=0),torch.cat(y_test, dim=0)
     idx_train=torch.randperm(x_train.shape[0])
     idx_test=torch.randperm(x_test.shape[0])
