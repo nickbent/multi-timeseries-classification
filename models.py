@@ -191,7 +191,7 @@ class MultiChannelMultiTimeDownSample(LightningModule):
             self.conv.append(cnn1d(channels, kernel_sizes))
 
 
-        self.num_final_channels_flattened = sum([ channels*get_final_length(sequence_length, kernels) for kernels in kernel_sizes])
+        self.num_final_channels_flattened = num_time_horizons*channels*get_final_length(sequence_length, kernels)
         self.classifier = nn.Sequential(*linear_layer(self.num_final_channels_flattened, num_classes, drop_out = dropout))
         
         self.num_paramaters = sum(p.numel() for p in self.parameters())
