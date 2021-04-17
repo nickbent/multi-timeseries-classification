@@ -39,7 +39,6 @@ class MultiChannelBase(LightningModule):
     def forward(self, x):
         x = self.conv(x)
         x = torch.flatten(x, start_dim = 1)
-        #x = x.view(-1, self.num_final_channels_flattened)
         pred = self.classifier(x)
 
         return pred
@@ -52,7 +51,6 @@ class MultiChannelBase(LightningModule):
     def training_step(self, batch, batch_idx):
         start = time.time()
         x, y = batch
-        #x = x.view(-1, 784, 1)
         labels = y 
         y_hat = self(x)
         train_loss = F.cross_entropy(y_hat, labels)
@@ -65,7 +63,6 @@ class MultiChannelBase(LightningModule):
     def validation_step(self, batch, batch_idx):
         start = time.time()
         x, y = batch
-        #x = x.view(-1,  784, 1)
         labels = y 
         y_hat = self(x)
         val_loss = F.cross_entropy(y_hat, labels)
@@ -78,7 +75,6 @@ class MultiChannelBase(LightningModule):
     def test_step(self, batch, batch_idx):
         start = time.time()
         x, y = batch
-        #x = x.view(-1,  784, 1)
         labels = y 
         y_hat = self(x)
         loss = F.cross_entropy(y_hat, labels)
@@ -92,12 +88,12 @@ class MultiChannelBase(LightningModule):
 class MultiChannelMultiTime(LightningModule):
 
     def __init__(self, channels, window_sizes, kernel_sizes_time, 
-                sequence_length, num_classes, dropout = 0.8, lr = 0.001, 
+                num_classes, dropout = 0.8, lr = 0.001, 
                 betas = (0.9, 0.999), eps = 1e-8):
         super(MultiChannelMultiTime, self).__init__()
-        self.num_classes = len(window_sizes)
+        self.num_classes = num_classes
         self.window_sizes = window_sizes
-        self.num_times = num_time_horizons
+        self.num_times_scales = len(window_sizes)
         self.lr = lr
         self. betas = betas
         self.eps = eps
@@ -107,20 +103,20 @@ class MultiChannelMultiTime(LightningModule):
 
         self.conv = []
 
-        for kernels in kernek_sizes_time:
+        for kernels in kernel_sizes_time:
             self.conv.append(cnn1d(channels, kernels))
 
 
-        self.num_final_channels_flattened = sum([ channels*get_final_length(sequence_length, kernels) for kernels in kernel_sizes_time])
+        self.num_final_channels_flattened = sum([ channels*get_final_length(window_size, kernels) for window_size, kernels in zip(window_sizes, kernel_sizes_time)])
         self.classifier = nn.Sequential(*linear_layer(self.num_final_channels_flattened, num_classes, drop_out = dropout))
         
         self.num_paramaters = sum(p.numel() for p in self.parameters())
         
     def forward(self, x):
         cnn_out = []
-        for window_size in self.window_sizes:
-            out= self.conv(x[:window_size])
-            scnn_out.append(torch.flatten(out, start_dim = 1))
+        for conv, window_size in zip(self.conv,self.window_sizes):
+            out= conv(x[:,:,:window_size])
+            cnn_out.append(torch.flatten(out, start_dim = 1))
         
         out = torch.cat(cnn_out, dim = 1)
         pred = self.classifier(out)
@@ -170,14 +166,15 @@ class MultiChannelMultiTime(LightningModule):
 
 class MultiChannelMultiTimeDownSample(LightningModule):
 
-    def __init__(self, channels, window_sizes, down_sampling_kernel, kernel_sizes, 
+    def __init__(self, channels, window_sizes,
+                down_sampling_kernel, kernel_sizes_time, 
                 sequence_length, num_classes, dropout = 0.8, lr = 0.001, 
                 betas = (0.9, 0.999), eps = 1e-8):
         super(MultiChannelMultiTimeDownSample, self).__init__()
-        self.num_classes = len(window_sizes)
+        self.num_classes = num_classes
         self.window_sizes = window_sizes
         self.down_sampling_kernel = down_sampling_kernel
-        self.num_time_horizons = num_time_horizons
+        self.num_times_scales = len(window_sizes)
         self.lr = lr
         self. betas = betas
         self.eps = eps
@@ -187,7 +184,7 @@ class MultiChannelMultiTimeDownSample(LightningModule):
 
         self.conv = []
 
-        for _ in self.num_time_horizons:
+        for _ in self.num_times_scales:
             self.conv.append(cnn1d(channels, kernel_sizes))
 
 
@@ -198,10 +195,10 @@ class MultiChannelMultiTimeDownSample(LightningModule):
         
     def forward(self, x):
         cnn_out = []
-        for kernel, window_size in zip(self.down_sampling_kernel, self.window_sizes):
-            x_window = x[:window_size]
+        for conv, kernel, window_size in zip(self.conv, self.down_sampling_kernel, self.window_sizes):
+            x_window = x[:,:,:window_size]
             down_sampled = nn.AvgPool1d(x_window, kernel)
-            out = self.conv(down_sampled)
+            out = conv(down_sampled)
             cnn_out.append(torch.flatten(out, start_dim = 1))
         
         out = torch.cat(cnn_out, dim = 1)
