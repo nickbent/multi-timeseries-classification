@@ -104,7 +104,11 @@ class MultiChannelMultiTime(LightningModule):
         self.conv = []
 
         for kernels in kernel_sizes_time:
-            self.conv.append(cnn1d(channels, kernels))
+            conv = cnn1d(channels, kernels)
+            if torch.cuda.is_available():
+                self.conv.append(conv.cuda())
+            else:
+                self.conv.append(conv)
 
 
         self.num_final_channels_flattened = sum([ channels*get_final_length(window_size, kernels) for window_size, kernels in zip(window_sizes, kernel_sizes_time)])
@@ -125,8 +129,8 @@ class MultiChannelMultiTime(LightningModule):
     
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.lr, betas = self.betas, eps = self.eps)
-        #scheduler = cheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[10,20,30], gamma=0.1)
-        return optimizer
+        scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[10,20,30], gamma=0.1)
+        return [optimizer], [scheduler]
     
     def training_step(self, batch, batch_idx):
         start = time.time()
@@ -167,7 +171,7 @@ class MultiChannelMultiTime(LightningModule):
 class MultiChannelMultiTimeDownSample(LightningModule):
 
     def __init__(self, channels, window_sizes,
-                down_sampling_kernel, kernel_sizes_time, 
+                down_sampling_kernel, kernel_sizes, 
                 sequence_length, num_classes, dropout = 0.8, lr = 0.001, 
                 betas = (0.9, 0.999), eps = 1e-8):
         super(MultiChannelMultiTimeDownSample, self).__init__()
@@ -184,23 +188,24 @@ class MultiChannelMultiTimeDownSample(LightningModule):
 
         self.conv = []
 
-        for _ in self.num_times_scales:
-            self.conv.append(cnn1d(channels, kernel_sizes))
+        for _ in range(self.num_times_scales):
+            self.conv.append(cnn1d(channels, kernel_sizes).cuda())
 
 
-        self.num_final_channels_flattened = num_time_horizons*channels*get_final_length(sequence_length, kernels)
+        self.num_final_channels_flattened = self.num_times_scales*channels*get_final_length(sequence_length, kernel_sizes)
         self.classifier = nn.Sequential(*linear_layer(self.num_final_channels_flattened, num_classes, drop_out = dropout))
         
         self.num_paramaters = sum(p.numel() for p in self.parameters())
         
     def forward(self, x):
         cnn_out = []
-        for conv, kernel, window_size in zip(self.conv, self.down_sampling_kernel, self.window_sizes):
+        for conv, kernels, window_size in zip(self.conv, self.down_sampling_kernel, self.window_sizes):
             x_window = x[:,:,:window_size]
-            down_sampled = nn.AvgPool1d(x_window, kernel)
-            out = conv(down_sampled)
+            for kernel in kernels:
+                x_window = torch.nn.functional.avg_pool1d(x_window, kernel, stride = 2)
+            out=conv(x_window)
             cnn_out.append(torch.flatten(out, start_dim = 1))
-        
+            
         out = torch.cat(cnn_out, dim = 1)
         pred = self.classifier(out)
 
