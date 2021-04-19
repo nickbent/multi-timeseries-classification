@@ -45,8 +45,8 @@ class MultiChannelBase(LightningModule):
     
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.lr, betas = self.betas, eps = self.eps)
-        #scheduler = cheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[10,20,30], gamma=0.1)
-        return optimizer
+        scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[10,20,30], gamma=0.1)
+        return [optimizer], [scheduler]
     
     def training_step(self, batch, batch_idx):
         start = time.time()
@@ -213,8 +213,8 @@ class MultiChannelMultiTimeDownSample(LightningModule):
     
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.lr, betas = self.betas, eps = self.eps)
-        #scheduler = cheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[10,20,30], gamma=0.1)
-        return optimizer
+        scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[10,20,30], gamma=0.1)
+        return [optimizer], [scheduler]
     
     def training_step(self, batch, batch_idx):
         start = time.time()
