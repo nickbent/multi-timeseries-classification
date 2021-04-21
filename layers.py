@@ -25,4 +25,12 @@ def linear_layer(in_features = 300, out_features = 300 , batch_norm = False, dro
     return layer
 
 
+def cnn1d(channels, kernel_sizes):
+    conv = []
 
+    for kernel in kernel_sizes:
+        conv.append(cnn1dblock(channels, channels, kernel))
+    
+    conv = nn.Sequential(*conv)
+
+    return conv

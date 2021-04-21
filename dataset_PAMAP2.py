@@ -127,7 +127,7 @@ def data_Preprocess(data):
 def pytorch_rolling_window(x, window_size, step_size=1):
     return x.unfold(0,window_size,step_size)
 
-def split_dataset(data,id_test,stepsize):
+def split_dataset(data,id_test,window_size,stepsize):
     x_train=[]
     y_train=[]
     x_test=[]
@@ -136,15 +136,15 @@ def split_dataset(data,id_test,stepsize):
     for i in data:
         if i!=id_test:
             for j in data[i]:
-                if data[i][j].shape[0]>1:
-                    se=pytorch_rolling_window(data[i][j], 256, step_size=stepsize)
+                if data[i][j].shape[0]>window_size:
+                    se=pytorch_rolling_window(data[i][j], window_size, step_size=stepsize)
                     y_train.append(torch.tensor([j]*se.shape[0]))
                     #Exemple se.shape (nombre d'extraits, nb de channels, window length)
                     x_train.append(se)
         else:
             for j in data[i]:
-                if data[i][j].shape[0]>1:
-                    se=pytorch_rolling_window(data[i][j], 256, step_size=stepsize)
+                if data[i][j].shape[0]>window_size:
+                    se=pytorch_rolling_window(data[i][j], window_size, step_size=stepsize)
                     y_test.append(torch.tensor([j]*se.shape[0]))
                     x_test.append(se)
     x_train,y_train,x_test,y_test=torch.cat(x_train, dim=0),torch.cat(y_train, dim=0),torch.cat(x_test, dim=0),torch.cat(y_test, dim=0)
@@ -167,11 +167,11 @@ class dataset_PAMAP2():
         self.data=data
         self.map_activity_id=load_activity_map()
     
-    def load_as_ListOfTensor_with_all_attributes(self,activity_list,id_test,stepsize):
+    def load_as_ListOfTensor_with_all_attributes(self,activity_list,id_test,window_size,stepsize):
         data_4_activities= self.data[self.data.activity_id.isin(activity_list)] #filter is in pour considérer que les 4 activités
         data_4_activities_normalized = data_Normalization(data_4_activities)
         data_processed=data_Preprocess(data_4_activities_normalized)
-        x_train,y_train,x_test,y_test=split_dataset(data_processed,id_test,stepsize)
+        x_train,y_train,x_test,y_test=split_dataset(data_processed,id_test,window_size,stepsize)
         
         y_train2=[activity_list.index(n) for n in y_train]
         y_test2=[activity_list.index(n) for n in y_test]
@@ -188,8 +188,8 @@ class dataset_PAMAP2():
             
         return train,test
     
-    def load_as_DataLoader_with_all_attributes(self,activity_list,id_test,stepsize,batch_size):        
-        train,test=self.load_as_ListOfTensor_with_all_attributes(activity_list,id_test,stepsize)
+    def load_as_DataLoader_with_all_attributes(self,activity_list,id_test,window_size,stepsize,batch_size):        
+        train,test=self.load_as_ListOfTensor_with_all_attributes(activity_list,id_test,window_size,stepsize)
         train_data=DataLoader(
         train,
         batch_size=batch_size,
@@ -210,11 +210,11 @@ class dataset_PAMAP2():
         
         return train_data,test_data
 
-    def load_as_ListOfTensor_with_specific_attributes(self,activity_list,id_test,stepsize,first_attribute_id,last_attribute_id):
+    def load_as_ListOfTensor_with_specific_attributes(self,activity_list,id_test,window_size,stepsize,first_attribute_id,last_attribute_id):
         data_4_activities= self.data[self.data.activity_id.isin(activity_list)] #filter is in pour considérer que les 4 activités
         data_4_activities_normalized = data_Normalization(data_4_activities)
         data_processed=data_Preprocess(data_4_activities_normalized)
-        x_train,y_train,x_test,y_test=split_dataset(data_processed,id_test,stepsize)
+        x_train,y_train,x_test,y_test=split_dataset(data_processed,id_test,window_size,stepsize)
         
         y_train2=[activity_list.index(n) for n in y_train]
         y_test2=[activity_list.index(n) for n in y_test]
@@ -231,8 +231,8 @@ class dataset_PAMAP2():
             
         return train,test
     
-    def load_as_DataLoader_with_specific_attributes(self,activity_list,id_test,stepsize,batch_size,first_attribute_id,last_attribute_id):        
-        train,test=self.load_as_ListOfTensor_with_specific_attributes(activity_list,id_test,stepsize,first_attribute_id,last_attribute_id)
+    def load_as_DataLoader_with_specific_attributes(self,activity_list,id_test,window_size,stepsize,batch_size,first_attribute_id,last_attribute_id):        
+        train,test=self.load_as_ListOfTensor_with_specific_attributes(activity_list,id_test,window_size,stepsize,first_attribute_id,last_attribute_id)
         train_data=DataLoader(
         train,
         batch_size=batch_size,
