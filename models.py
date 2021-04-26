@@ -20,7 +20,7 @@ def get_final_length(sequence_length, kernel_sizes, padding=2, stride=2):
 class MultiChannelBase(LightningModule):
 
     def __init__(self, channels, kernel_sizes, sequence_length, 
-                num_classes, attention = False,
+                num_classes, attention = False, num_heads = 2,
                 dropout = 0.8, lr = 0.001, betas = (0.9, 0.999), eps = 1e-8):
         super(MultiChannelBase, self).__init__()
         self.num_classes = num_classes
@@ -36,7 +36,7 @@ class MultiChannelBase(LightningModule):
 
         if self.attention:
             self.num_final_layers = get_final_length(sequence_length, kernel_sizes)
-            self.attention_layers = nn.MultiheadAttention(self.num_final_layers, 1)
+            self.attention_layers = nn.MultiheadAttention(self.num_final_layers, num_heads)
         else:
             self.num_final_layers = channels*get_final_length(sequence_length, kernel_sizes)
         
@@ -102,7 +102,7 @@ class MultiChannelBase(LightningModule):
 class MultiChannelMultiTime(LightningModule):
 
     def __init__(self, channels, window_sizes, kernel_sizes_time, 
-                num_classes, attention, dropout = 0.8, lr = 0.001, 
+                num_classes, attention, num_heads = 2, dropout = 0.8, lr = 0.001, 
                 betas = (0.9, 0.999), eps = 1e-8):
         super(MultiChannelMultiTime, self).__init__()
         self.num_classes = num_classes
@@ -127,7 +127,7 @@ class MultiChannelMultiTime(LightningModule):
 
         if self.attention:
             self.num_final_layers = get_final_length(window_sizes[0], kernel_sizes_time[0])
-            self.attention_layers = nn.MultiheadAttention(self.num_final_layers, 1)
+            self.attention_layers = nn.MultiheadAttention(self.num_final_layers, num_heads)
         else:
             self.num_final_layers = sum([ channels*get_final_length(window_size, kernels) for window_size, kernels in zip(window_sizes, kernel_sizes_time)])
 
@@ -201,7 +201,7 @@ class MultiChannelMultiTimeDownSample(LightningModule):
     def __init__(self, channels, window_sizes,
                 down_sampling_kernel, kernel_sizes, 
                 sequence_length, num_classes, attention = False, 
-                dropout = 0.8, lr = 0.001, 
+                num_heads = 2, dropout = 0.8, lr = 0.001, 
                 betas = (0.9, 0.999), eps = 1e-8):
         super(MultiChannelMultiTimeDownSample, self).__init__()
         self.num_classes = num_classes
@@ -223,7 +223,7 @@ class MultiChannelMultiTimeDownSample(LightningModule):
 
         if self.attention:
             self.num_final_layers = get_final_length(sequence_length, kernel_sizes)
-            self.attention_layers = nn.MultiheadAttention(self.num_final_layers, 1)
+            self.attention_layers = nn.MultiheadAttention(self.num_final_layers, num_heads)
         else:
             self.num_final_layers = self.num_times_scales*channels*get_final_length(sequence_length, kernel_sizes)
         
