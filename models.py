@@ -35,10 +35,11 @@ class MultiChannelBase(LightningModule):
         self.conv = cnn1d(channels, kernel_sizes)
 
         if self.attention:
-            self.num_final_layers = get_final_length(sequence_length, kernel_sizes)
-            self.attention_layers = nn.MultiheadAttention(self.num_final_layers, num_heads)
-        else:
-            self.num_final_layers = channels[-1]*get_final_length(sequence_length, kernel_sizes)
+            final_sequence_length = get_final_length(sequence_length, kernel_sizes)
+            self.attention_layers = nn.MultiheadAttention(final_sequence_length, num_heads)
+        # else:
+        
+        self.num_final_layers = channels[-1]*get_final_length(sequence_length, kernel_sizes)
         
         self.classifier = nn.Sequential(*linear_layer(self.num_final_layers, num_classes, drop_out = dropout))
         
@@ -50,9 +51,8 @@ class MultiChannelBase(LightningModule):
             x = torch.transpose(x, 0, 1)
             x, _ = self.attention_layers(x,x,x)
             x = torch.transpose(x, 0, 1)
-            x = torch.mean(x, dim = 1)
-        else:
-            x = torch.flatten(x, start_dim = 1)
+        
+        x = torch.flatten(x, start_dim = 1)
         pred = self.classifier(x)
 
         return pred
@@ -126,10 +126,10 @@ class MultiChannelMultiTime(LightningModule):
                 self.conv.append(conv)
 
         if self.attention:
-            self.num_final_layers = get_final_length(window_sizes[0], kernel_sizes_time[0])
-            self.attention_layers = nn.MultiheadAttention(self.num_final_layers, num_heads)
-        else:
-            self.num_final_layers = sum([ channels[-1]*get_final_length(window_size, kernels) for window_size, kernels in zip(window_sizes, kernel_sizes_time)])
+            final_sequence_length = get_final_length(window_sizes[0], kernel_sizes_time[0])
+            self.attention_layers = nn.MultiheadAttention(final_sequence_length, num_heads)
+
+        self.num_final_layers = sum([ channels[-1]*get_final_length(window_size, kernels) for window_size, kernels in zip(window_sizes, kernel_sizes_time)])
 
 
         self.classifier = nn.Sequential(*linear_layer(self.num_final_layers, num_classes, drop_out = dropout))
@@ -149,7 +149,7 @@ class MultiChannelMultiTime(LightningModule):
             x = torch.transpose(x, 0, 1)
             x, _ = self.attention_layers(x,x,x)
             x = torch.transpose(x, 0, 1)
-            x = torch.mean(x, dim = 1)
+            x = torch.flatten(x, start_dim = 1)
 
         pred = self.classifier(x)
 
@@ -219,13 +219,18 @@ class MultiChannelMultiTimeDownSample(LightningModule):
         self.conv = []
 
         for _ in range(self.num_times_scales):
-            self.conv.append(cnn1d(channels, kernel_sizes))
+            conv = cnn1d(channels, kernel_sizes)
+            if torch.cuda.is_available():
+                self.conv.append(conv.cuda())
+            else:
+                self.conv.append(conv)
 
         if self.attention:
-            self.num_final_layers = get_final_length(sequence_length, kernel_sizes)
-            self.attention_layers = nn.MultiheadAttention(self.num_final_layers, num_heads)
-        else:
-            self.num_final_layers = self.num_times_scales*channels[-1]*get_final_length(sequence_length, kernel_sizes)
+            final_sequence_length = get_final_length(sequence_length, kernel_sizes)
+            self.attention_layers = nn.MultiheadAttention(final_sequence_length, num_heads)
+
+        
+        self.num_final_layers = self.num_times_scales*channels[-1]*get_final_length(sequence_length, kernel_sizes)
         
         self.classifier = nn.Sequential(*linear_layer(self.num_final_layers, num_classes, drop_out = dropout))
         
@@ -247,7 +252,7 @@ class MultiChannelMultiTimeDownSample(LightningModule):
             x = torch.transpose(x, 0, 1)
             x, _ = self.attention_layers(x,x,x)
             x = torch.transpose(x, 0, 1)
-            x = torch.mean(x, dim = 1)
+            x = torch.flatten(x, start_dim = 1)
 
         pred = self.classifier(x)
 
