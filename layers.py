@@ -7,7 +7,7 @@ from torch.nn import functional as F
 def cnn1dblock(num_channels, out_channels, kernel_size, stride = 2,  activation = True, padding = 2):
 
     layers = []
-    layers.append(nn.Conv1d(num_channels, out_channels, kernel_size, stride=stride, padding = 2))
+    layers.append(nn.Conv1d(num_channels, out_channels, kernel_size, groups = num_channels, stride=stride, padding = 2))
     layers.append(nn.BatchNorm1d(out_channels))
     if activation:
         layers.append(nn.ReLU())
