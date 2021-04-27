@@ -38,7 +38,7 @@ class MultiChannelBase(LightningModule):
             self.num_final_layers = get_final_length(sequence_length, kernel_sizes)
             self.attention_layers = nn.MultiheadAttention(self.num_final_layers, num_heads)
         else:
-            self.num_final_layers = channels*get_final_length(sequence_length, kernel_sizes)
+            self.num_final_layers = channels[-1]*get_final_length(sequence_length, kernel_sizes)
         
         self.classifier = nn.Sequential(*linear_layer(self.num_final_layers, num_classes, drop_out = dropout))
         
@@ -101,7 +101,7 @@ class MultiChannelBase(LightningModule):
 
 class MultiChannelMultiTime(LightningModule):
 
-    def __init__(self, channels, window_sizes, kernel_sizes_time, 
+    def __init__(self, channels_time, window_sizes, kernel_sizes_time, 
                 num_classes, attention, num_heads = 2, dropout = 0.8, lr = 0.001, 
                 betas = (0.9, 0.999), eps = 1e-8):
         super(MultiChannelMultiTime, self).__init__()
@@ -118,7 +118,7 @@ class MultiChannelMultiTime(LightningModule):
 
         self.conv = []
 
-        for kernels in kernel_sizes_time:
+        for channels, kernels in zip( channels_time, kernel_sizes_time):
             conv = cnn1d(channels, kernels)
             if torch.cuda.is_available():
                 self.conv.append(conv.cuda())
@@ -129,7 +129,7 @@ class MultiChannelMultiTime(LightningModule):
             self.num_final_layers = get_final_length(window_sizes[0], kernel_sizes_time[0])
             self.attention_layers = nn.MultiheadAttention(self.num_final_layers, num_heads)
         else:
-            self.num_final_layers = sum([ channels*get_final_length(window_size, kernels) for window_size, kernels in zip(window_sizes, kernel_sizes_time)])
+            self.num_final_layers = sum([ channels[-1]*get_final_length(window_size, kernels) for window_size, kernels in zip(window_sizes, kernel_sizes_time)])
 
 
         self.classifier = nn.Sequential(*linear_layer(self.num_final_layers, num_classes, drop_out = dropout))
@@ -225,7 +225,7 @@ class MultiChannelMultiTimeDownSample(LightningModule):
             self.num_final_layers = get_final_length(sequence_length, kernel_sizes)
             self.attention_layers = nn.MultiheadAttention(self.num_final_layers, num_heads)
         else:
-            self.num_final_layers = self.num_times_scales*channels*get_final_length(sequence_length, kernel_sizes)
+            self.num_final_layers = self.num_times_scales*channels[-1]*get_final_length(sequence_length, kernel_sizes)
         
         self.classifier = nn.Sequential(*linear_layer(self.num_final_layers, num_classes, drop_out = dropout))
         
