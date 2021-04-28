@@ -20,11 +20,12 @@ def get_final_length(sequence_length, kernel_sizes, padding=2, stride=2):
 class MultiChannelBase(LightningModule):
 
     def __init__(self, channels, kernel_sizes, sequence_length, 
-                num_classes, attention = False, num_heads = 2,
+                num_classes, attention = False, mode = "flat", num_heads = 2,
                 dropout = 0.8, lr = 0.001, betas = (0.9, 0.999), eps = 1e-8):
         super(MultiChannelBase, self).__init__()
         self.num_classes = num_classes
         self.attention = attention
+        self.mode = mode
         self.lr = lr
         self.betas = betas
         self.eps = eps
@@ -38,8 +39,10 @@ class MultiChannelBase(LightningModule):
             final_sequence_length = get_final_length(sequence_length, kernel_sizes)
             self.attention_layers = nn.MultiheadAttention(final_sequence_length, num_heads)
         # else:
-        
-        self.num_final_layers = channels[-1]*get_final_length(sequence_length, kernel_sizes)
+        self.num_final_layers = get_final_length(sequence_length, kernel_sizes)
+        if not attention or mode == "flat":
+            self.num_final_layers *= channels[-1]
+
         
         self.classifier = nn.Sequential(*linear_layer(self.num_final_layers, num_classes, drop_out = dropout))
         
@@ -51,8 +54,14 @@ class MultiChannelBase(LightningModule):
             x = torch.transpose(x, 0, 1)
             x, _ = self.attention_layers(x,x,x)
             x = torch.transpose(x, 0, 1)
-        
-        x = torch.flatten(x, start_dim = 1)
+            if self.mode == "flat":
+                x = torch.flatten(x, start_dim = 1)
+            elif self.mode == "mean":
+                x = torch.mean(x, dim = 1)
+            elif self.mode == "one":
+                x = x[:,0,:]
+        else:
+            x = torch.flatten(x, start_dim = 1)
         pred = self.classifier(x)
 
         return pred
@@ -102,13 +111,14 @@ class MultiChannelBase(LightningModule):
 class MultiChannelMultiTime(LightningModule):
 
     def __init__(self, channels_time, window_sizes, kernel_sizes_time, 
-                num_classes, attention, num_heads = 2, dropout = 0.8, lr = 0.001, 
+                num_classes, attention, mode = "flat", num_heads = 2, dropout = 0.8, lr = 0.001, 
                 betas = (0.9, 0.999), eps = 1e-8):
         super(MultiChannelMultiTime, self).__init__()
         self.num_classes = num_classes
         self.window_sizes = window_sizes
         self.num_times_scales = len(window_sizes)
         self.attention = attention
+        self.mode = mode
         self.lr = lr
         self. betas = betas
         self.eps = eps
@@ -129,7 +139,10 @@ class MultiChannelMultiTime(LightningModule):
             final_sequence_length = get_final_length(window_sizes[0], kernel_sizes_time[0])
             self.attention_layers = nn.MultiheadAttention(final_sequence_length, num_heads)
 
-        self.num_final_layers = sum([ channels[-1]*get_final_length(window_size, kernels) for window_size, kernels in zip(window_sizes, kernel_sizes_time)])
+        if not attention or mode == "flat":
+            self.num_final_layers = sum([ channels[-1]*get_final_length(window_size, kernels) for window_size, kernels in zip(window_sizes, kernel_sizes_time)])
+        else:
+            self.num_final_layers = get_final_length(window_sizes[0], kernel_sizes_time[0])
 
 
         self.classifier = nn.Sequential(*linear_layer(self.num_final_layers, num_classes, drop_out = dropout))
@@ -149,7 +162,12 @@ class MultiChannelMultiTime(LightningModule):
             x = torch.transpose(x, 0, 1)
             x, _ = self.attention_layers(x,x,x)
             x = torch.transpose(x, 0, 1)
-            x = torch.flatten(x, start_dim = 1)
+            if self.mode == "flat":
+                x = torch.flatten(x, start_dim = 1)
+            elif self.mode == "mean":
+                x = torch.mean(x, dim = 1)
+            elif self.mode == "one":
+                x = x[:,0,:]
 
         pred = self.classifier(x)
 
@@ -201,7 +219,7 @@ class MultiChannelMultiTimeDownSample(LightningModule):
     def __init__(self, channels, window_sizes,
                 down_sampling_kernel, kernel_sizes, 
                 sequence_length, num_classes, attention = False, 
-                num_heads = 2, dropout = 0.8, lr = 0.001, 
+                mode = "flat", num_heads = 2, dropout = 0.8, lr = 0.001, 
                 betas = (0.9, 0.999), eps = 1e-8):
         super(MultiChannelMultiTimeDownSample, self).__init__()
         self.num_classes = num_classes
@@ -209,6 +227,7 @@ class MultiChannelMultiTimeDownSample(LightningModule):
         self.down_sampling_kernel = down_sampling_kernel
         self.num_times_scales = len(window_sizes)
         self.attention = attention
+        self.mode = mode
         self.lr = lr
         self. betas = betas
         self.eps = eps
@@ -229,8 +248,9 @@ class MultiChannelMultiTimeDownSample(LightningModule):
             final_sequence_length = get_final_length(sequence_length, kernel_sizes)
             self.attention_layers = nn.MultiheadAttention(final_sequence_length, num_heads)
 
-        
-        self.num_final_layers = self.num_times_scales*channels[-1]*get_final_length(sequence_length, kernel_sizes)
+        self.num_final_layers = get_final_length(sequence_length, kernel_sizes)
+        if not attention or mode == "flat":
+            self.num_final_layers *= self.num_times_scales*channels[-1]
         
         self.classifier = nn.Sequential(*linear_layer(self.num_final_layers, num_classes, drop_out = dropout))
         
@@ -252,7 +272,12 @@ class MultiChannelMultiTimeDownSample(LightningModule):
             x = torch.transpose(x, 0, 1)
             x, _ = self.attention_layers(x,x,x)
             x = torch.transpose(x, 0, 1)
-            x = torch.flatten(x, start_dim = 1)
+            if self.mode == "flat":
+                x = torch.flatten(x, start_dim = 1)
+            elif self.mode == "mean":
+                x = torch.mean(x, dim = 1)
+            elif self.mode == "one":
+                x = x[:,0,:]
 
         pred = self.classifier(x)
 
