@@ -140,7 +140,7 @@ class MultiChannelMultiTime(LightningModule):
             self.attention_layers = nn.MultiheadAttention(final_sequence_length, num_heads)
 
         if not attention or mode == "flat":
-            self.num_final_layers = sum([ channels[-1]*get_final_length(window_size, kernels) for window_size, kernels in zip(window_sizes, kernel_sizes_time)])
+            self.num_final_layers = sum([ channels[-1]*get_final_length(window_size, kernels) for channels, window_size, kernels in zip(channels_time,window_sizes, kernel_sizes_time)])
         else:
             self.num_final_layers = get_final_length(window_sizes[0], kernel_sizes_time[0])
 
@@ -168,7 +168,6 @@ class MultiChannelMultiTime(LightningModule):
                 x = torch.mean(x, dim = 1)
             elif self.mode == "one":
                 x = x[:,0,:]
-
         pred = self.classifier(x)
 
         return pred
@@ -251,7 +250,6 @@ class MultiChannelMultiTimeDownSample(LightningModule):
         self.num_final_layers = get_final_length(sequence_length, kernel_sizes)
         if not attention or mode == "flat":
             self.num_final_layers *= self.num_times_scales*channels[-1]
-        
         self.classifier = nn.Sequential(*linear_layer(self.num_final_layers, num_classes, drop_out = dropout))
         
         self.num_paramaters = sum(p.numel() for p in self.parameters())
@@ -278,7 +276,6 @@ class MultiChannelMultiTimeDownSample(LightningModule):
                 x = torch.mean(x, dim = 1)
             elif self.mode == "one":
                 x = x[:,0,:]
-
         pred = self.classifier(x)
 
         return pred
